@@ -48,7 +48,7 @@ export default function Documents() {
             <tbody>{list.map((d) => (
               <tr key={d.id} style={{ opacity: d.is_latest ? 1 : 0.55 }}>
                 <td>{lab(d.doc_type)}</td><td>{d.title}</td><td>{d.revision}</td><td className="n">{d.pages}</td>
-                <td><Badge tone={statusTone[d.text_status]}>{d.text_status === "needs_ocr" ? L("يحتاج OCR", "needs OCR") : d.text_status}</Badge></td>
+                <td><Badge tone={statusTone[d.text_status]}>{lab(d.text_status)}</Badge></td>
                 <td>{d.is_latest ? <Badge tone="ok">{L("آخر إصدار", "latest")}</Badge> : <Badge>{L("ملغى بإصدار أحدث", "superseded")}</Badge>}</td>
                 <td>{fmt.d(d.created_at)}</td>
                 <td className="row gap">

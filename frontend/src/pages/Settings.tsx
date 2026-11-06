@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { useI18n } from "../i18n";
+import { PERMISSION_LABELS, useI18n, useLabel } from "../i18n";
 import { Card, Field, Modal, NumIn, Tabs, useAction, useAuth, useCan, useLoad } from "../ui";
 
 const PARAM_LABELS: Record<string, [string, string]> = {
@@ -84,7 +84,8 @@ function CompanySettings() {
 }
 
 function Users() {
-  const { L } = useI18n();
+  const { L, lang } = useI18n();
+  const lab = useLabel();
   const can = useCan();
   const { run } = useAction();
   const [users, reload] = useLoad<any[]>("/users");
@@ -101,7 +102,7 @@ function Users() {
       <table><thead><tr><th>{L("المستخدم", "User")}</th><th>{L("الأدوار", "Roles")}</th><th>{L("الصلاحيات الفعلية", "Effective permissions")}</th><th /></tr></thead>
         <tbody>{(users || []).map((u) => (
           <tr key={u.id} style={{ opacity: u.is_active ? 1 : 0.5 }}><td>{u.full_name || u.username}<div className="small muted">{u.username}</div></td>
-            <td>{u.roles.join("، ")}</td><td className="small muted">{u.permissions.join(" · ")}</td>
+            <td>{u.roles.map(lab).join("، ")}</td><td className="small muted">{u.permissions.map((p: string) => PERMISSION_LABELS[p]?.[lang === "ar" ? 0 : 1] || p).join(" · ")}</td>
             <td>{!dis && <button className="sm" onClick={() => setEdit({ ...u })}>{L("تعديل", "Edit")}</button>}</td></tr>))}</tbody></table>
       {edit && meta && (
         <Modal wide title={edit.id ? edit.username : L("مستخدم جديد", "New user")} onClose={() => setEdit(null)}>
@@ -114,11 +115,11 @@ function Users() {
           </div>
           <h4 style={{ margin: "12px 0 6px" }}>{L("الأدوار", "Roles")}</h4>
           <div className="row gap wrap">{Object.keys(meta.roles).map((r) => (
-            <label key={r} className="row gap"><input type="checkbox" checked={edit.roles.includes(r)} onChange={() => setEdit({ ...edit, roles: toggle(edit.roles, r) })} />{r}</label>))}</div>
+            <label key={r} className="row gap"><input type="checkbox" checked={edit.roles.includes(r)} onChange={() => setEdit({ ...edit, roles: toggle(edit.roles, r) })} />{lab(r)}</label>))}</div>
           <h4 style={{ margin: "12px 0 6px" }}>{L("تعديل صلاحيات هذا المستخدم", "Per-user permission overrides")}</h4>
           <table><thead><tr><th>{L("الصلاحية", "Permission")}</th><th>{L("منح إضافي", "Grant")}</th><th>{L("سحب", "Revoke")}</th></tr></thead>
             <tbody>{Object.entries(meta.permissions).map(([p, desc]: any) => (
-              <tr key={p}><td>{p} <span className="muted small">{desc}</span></td>
+              <tr key={p}><td>{PERMISSION_LABELS[p]?.[lang === "ar" ? 0 : 1] || desc} <span className="muted small">{p}</span></td>
                 <td><input type="checkbox" checked={edit.extra_permissions?.includes(p)} onChange={() => setEdit({ ...edit, extra_permissions: toggle(edit.extra_permissions, p) })} /></td>
                 <td><input type="checkbox" checked={edit.revoked_permissions?.includes(p)} onChange={() => setEdit({ ...edit, revoked_permissions: toggle(edit.revoked_permissions, p) })} /></td></tr>))}</tbody></table>
           <button className="primary" style={{ marginTop: 10 }} onClick={save}>{L("حفظ", "Save")}</button>

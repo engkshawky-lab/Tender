@@ -47,7 +47,7 @@ def load_indirect_template(db: Session, est: Estimate, tender: Tender):
     for t in (get_setting(db, "indirect_templates") or {}).get(tender.project_type, []):
         if t["key"] in have:
             continue
-        db.add(IndirectItem(estimate_id=est.id, category=t["category"], description=t["ar"], kind=t["kind"],
+        db.add(IndirectItem(estimate_id=est.id, category=t["category"], description=t["ar"], description_en=t["en"], kind=t["kind"],
                             monthly_cost=t.get("monthly_cost", 0), quantity=t.get("quantity", 1), amount=t.get("amount", 0),
                             template_key=t["key"], currency=tender.base_currency))
         n += 1
@@ -281,7 +281,7 @@ def price_analysis(eid: int, scope: str | None = None, kind: str | None = None, 
 
 
 # ---------------------------------------------------------------- site overheads (step 12)
-IND_FIELDS = ["category", "description", "kind", "monthly_cost", "quantity", "months", "amount", "currency", "template_key", "origin", "approved"]
+IND_FIELDS = ["category", "description", "description_en", "kind", "monthly_cost", "quantity", "months", "amount", "currency", "template_key", "origin", "approved"]
 
 
 @router.get("/estimates/{eid}/indirects")
@@ -469,16 +469,19 @@ def export_internal(eid: int, db: Session = Depends(get_db), u: User = Depends(g
              float(x.amount)] for x in db.scalars(select(IndirectItem).where(IndirectItem.estimate_id == eid)).all()]
     cf = [[r["month"], r["cost"], r["income"], r["balance"], r["interest"]] for r in res.get("cash_flow", [])]
     sheets = [
-        {"title": "Summary", "headers": ["Item", "Value"], "rows": summ, "widths": [32, 20]},
-        {"title": "BOQ", "headers": ["Ref", "Description", "Unit", "Qty", "Scope", "Material", "Labour", "Equipment",
-                                     "Subcontract", "Direct rate", "Direct total"] + (["Final rate", "Amount"] if show else []),
+        {"title": "Summary", "headers": ["البند / Item", "القيمة / Value"], "rows": summ, "widths": [32, 20]},
+        {"title": "BOQ", "headers": ["رقم / Ref", "الوصف / Description", "الوحدة / Unit", "الكمية / Qty", "النطاق / Scope", "خامات / Material",
+                                     "عمالة / Labour", "معدات / Equipment", "باطن / Subcontract", "المباشر للوحدة / Direct rate",
+                                     "إجمالي المباشر / Direct total"] + (["السعر النهائي / Final rate", "الإجمالي / Amount"] if show else []),
          "rows": boq_rows, "section_rows": sec_rows, "widths": [8, 60, 8, 10, 14, 12, 12, 12, 12, 14, 16, 14, 16]},
-        {"title": "Build-up", "headers": ["Ref", "Kind", "Part", "Description", "Coef.", "Unit price", "Cur", "Waste %", "Source",
-                                          "Source ref", "Price date", "Approved"], "rows": lines},
-        {"title": "Indirects", "headers": ["Category", "Description", "Kind", "Monthly", "Qty", "Months", "Fixed amount"], "rows": inds},
+        {"title": "Build-up", "headers": ["رقم / Ref", "النوع / Kind", "الجزء / Part", "الوصف / Description", "المعامل / Coef.", "سعر الوحدة / Unit price",
+                                          "العملة / Cur", "هالك / Waste %", "المصدر / Source", "مرجع المصدر / Source ref", "تاريخ السعر / Price date",
+                                          "معتمد / Approved"], "rows": lines},
+        {"title": "Indirects", "headers": ["الفئة / Category", "الوصف / Description", "النوع / Kind", "شهري / Monthly", "العدد / Qty",
+                                           "الأشهر / Months", "مبلغ ثابت / Fixed amount"], "rows": inds},
     ]
     if cf:
-        sheets.append({"title": "Cash flow", "headers": ["Month", "Cost", "Income", "Balance", "Interest"], "rows": cf})
+        sheets.append({"title": "Cash flow", "headers": ["الشهر / Month", "التكلفة / Cost", "التحصيل / Income", "الرصيد / Balance", "الفائدة / Interest"], "rows": cf})
     sheets.append({"title": "Info", "headers": ["Field", "Value"], "rows": [
         ["Tender", f"{t.code} {t.name}"], ["Version", est.version_no], ["Status", est.status],
         ["FX rates", ", ".join(f"{k}={v}" for k, v in (est.fx_rates or {}).items())],
@@ -513,8 +516,9 @@ def export_baseline(eid: int, db: Session = Depends(get_db), u: User = Depends(r
     s = res["summary"]
     body += [["", "مصاريف غير مباشرة للموقع / Site overheads", "", "", "", "", "", s["site_overheads"], ""],
              ["", "طوارئ / Contingency", "", "", "", "", "", s["contingency"] + s["escalation"], ""]]
-    return _file(build_workbook([{"title": "Baseline budget", "headers": ["Cost code", "Name", "Package", "Material", "Labour",
-                                                                            "Equipment", "Subcontract", "Budget", "Contract value"],
+    return _file(build_workbook([{"title": "Baseline budget", "headers": ["كود التكلفة / Cost code", "الاسم / Name", "الحزمة / Package", "خامات / Material",
+                                                                            "عمالة / Labour", "معدات / Equipment", "باطن / Subcontract",
+                                                                            "الميزانية / Budget", "قيمة العقد / Contract value"],
                                   "rows": body, "widths": [10, 40, 24, 14, 14, 14, 14, 16, 16]}]),
                  f"{t.code}_baseline_budget.xlsx")
 
@@ -527,9 +531,31 @@ def offer_letter(eid: int, data: dict = Body(default={}), db: Session = Depends(
     t = db.get(Tender, est.tender_id)
     res = result_for(db, est)
     lib = get_setting(db, "clarifications_library") or []
-    chosen = [lib[i]["ar"] for i in data.get("clarifications", []) if 0 <= i < len(lib)] + [x for x in data.get("extra", []) if x]
+    lang = "en" if data.get("lang") == "en" else "ar"
+    chosen = [lib[i][lang] for i in data.get("clarifications", []) if 0 <= i < len(lib)] + [x for x in data.get("extra", []) if x]
     s = res["summary"]
     show = can(u, "markup.view")
+    if lang == "en":
+        cur = t.base_currency
+        lines = [f"To: {t.owner or '...'}", f"Subject: Financial offer — {t.name} ({t.code})", "", "Dear Sirs,",
+                 "With reference to the above tender, we are pleased to submit our financial offer in accordance with the attached priced BOQ:", ""]
+        if show:
+            vat = s.get("vat_total") or 0
+            lines += [f"• Total excluding VAT: {s['submitted_total']:,.2f} {cur}", f"• VAT: {vat:,.2f} {cur}",
+                      f"• Total including VAT: {s['submitted_total'] + vat:,.2f} {cur}"]
+        if t.duration_months:
+            lines.append(f"• Completion period: {t.duration_months} months from site handover.")
+        lines.append(f"• Offer validity: {t.bid_validity_days or 90} days from the opening date.")
+        if chosen:
+            lines += ["", "Clarifications and qualifications:"] + [f"{i}) {c}" for i, c in enumerate(chosen, start=1)]
+        ve = db.scalars(select(VEAlternative).where(VEAlternative.tender_id == t.id, VEAlternative.status.in_(["proposed", "offered"]))).all()
+        if ve and data.get("include_ve", True):
+            lines += ["", "Optional cost-saving alternatives:"]
+            for v in ve:
+                it = db.get(BoqItem, v.boq_item_id) if v.boq_item_id else None
+                lines.append(f"- {('Item ' + it.item_ref + ': ') if it else ''}{v.description}" + (f" — lead time {v.lead_time_days} days" if v.lead_time_days else ""))
+        lines += ["", "Yours faithfully,"]
+        return {"text": "\n".join(lines), "library": lib}
     lines = [f"السادة / {t.owner or '...'}", "تحية طيبة وبعد،",
              f"بالإشارة إلى مناقصة «{t.name}»، يسعدنا أن نتقدم بعرضنا المالي طبقًا للمقايسة المرفقة:", ""]
     if show:

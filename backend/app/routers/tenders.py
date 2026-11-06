@@ -139,6 +139,10 @@ def gonogo(tid: int, data: dict = Body(...), db: Session = Depends(get_db), u: U
             f"السادة / {t.owner or '...'}\nتحية طيبة وبعد،\n"
             f"بالإشارة إلى دعوتكم الكريمة للمشاركة في مناقصة «{t.name}»، نشكركم على ثقتكم، ونعتذر عن عدم التقدم بعطاء "
             "في هذه المناقصة نظرًا لارتباطاتنا الحالية، ونأمل أن تتاح لنا فرصة التعاون في مشروعات قادمة.\nوتفضلوا بقبول فائق الاحترام،")
+        t.gonogo["apology_letter_en"] = (
+            f"Dear {t.owner or 'Sirs'},\n"
+            f"Thank you for inviting us to tender for “{t.name}”. We regret that, owing to our current commitments, we are unable "
+            "to submit a bid on this occasion. We value the invitation and look forward to working with you on future projects.\nYours faithfully,")
     elif t.status in ("intake", "go_no_go"):
         t.status = "study"
     db.commit()
@@ -418,9 +422,15 @@ def update_rfi(rid: int, data: dict = Body(...), db: Session = Depends(get_db), 
 
 
 @router.get("/tenders/{tid}/rfis/letter")
-def rfi_letter(tid: int, db: Session = Depends(get_db), _: User = Depends(get_current_user)):
+def rfi_letter(tid: int, lang: str = "ar", db: Session = Depends(get_db), _: User = Depends(get_current_user)):
     t = tender_of(db, tid)
     items = db.scalars(select(RFI).where(RFI.tender_id == tid, RFI.status == "draft").order_by(RFI.number)).all()
+    if lang == "en":
+        lines = [f"To: {t.consultant or t.owner or '...'}", f"Subject: Tender clarifications — {t.name} ({t.code})", "",
+                 "Dear Sirs,", "We would be grateful for your clarification of the following points:", ""]
+        lines += [f"{r.number}) {r.question}" + (f"  [Ref: {r.reference}]" if r.reference else "") for r in items]
+        lines += ["", "Yours faithfully,"]
+        return {"text": "\n".join(lines), "count": len(items)}
     lines = [f"السادة / {t.consultant or t.owner or '...'}", "تحية طيبة وبعد،",
              f"بالإشارة إلى مناقصة «{t.name}» ({t.code})، نرجو التكرم بإفادتنا بالاستيضاحات التالية:", ""]
     for r in items:

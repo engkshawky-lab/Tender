@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { api } from "../api";
-import { useI18n, useLabel } from "../i18n";
+import { useI18n, useLabel, useName } from "../i18n";
 import { AIBadge, Badge, Card, Empty, FileButton, Modal, NumIn, Select, TextIn, useAction, useCan, useFmt, useLoad } from "../ui";
 import { useTender } from "./TenderPage";
 
@@ -40,8 +40,9 @@ function ImportModal({ pv, onClose, onDone }: { pv: any; onClose: () => void; on
 
 export default function Boq() {
   const { tender } = useTender();
-  const { L } = useI18n();
+  const { L, lang } = useI18n();
   const lab = useLabel();
+  const nm = useName();
   const fmt = useFmt();
   const can = useCan();
   const { run, busy } = useAction();
@@ -82,7 +83,7 @@ export default function Boq() {
           <span className="grow" />
           <input placeholder={L("بحث", "Search")} value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} />
           <Select value={filter.scope} onChange={(v) => setFilter({ ...filter, scope: v })} options={[["", L("كل النطاقات", "All scopes")], ...SCOPES.map((s) => [s, lab(s)] as [string, string])]} />
-          <Select value={filter.pkg} onChange={(v) => setFilter({ ...filter, pkg: v })} options={[["", L("كل الحزم", "All packages")], ...(pkgs || []).map((p) => [String(p.id), p.name] as [string, string])]} />
+          <Select value={filter.pkg} onChange={(v) => setFilter({ ...filter, pkg: v })} options={[["", L("كل الحزم", "All packages")], ...(pkgs || []).map((p) => [String(p.id), nm(p.name, p.name_en)] as [string, string])]} />
           <label className="row gap small"><input type="checkbox" checked={filter.uncoded} onChange={(e) => setFilter({ ...filter, uncoded: e.target.checked })} />{L("غير المكود فقط", "Uncoded only")}</label>
         </div>
       </Card>
@@ -107,10 +108,10 @@ export default function Boq() {
                     <div className="row gap"><AIBadge conf={suggBy[i.id].confidence} /><span className="small">{suggBy[i.id].payload.code} {suggBy[i.id].payload.name}</span>
                       {!dis && <button className="sm ok" onClick={() => run(async () => { await api.post(`/tenders/${tender.id}/boq/accept-cost-codes`, { ids: [suggBy[i.id].id] }); refreshAll(); })}>✓</button>}</div>
                   ) : (
-                    <Select value={i.cost_code_id ?? ""} disabled={dis} onChange={upd(i.id, "cost_code_id")} options={[["", "—"], ...l3.map((c) => [c.id, `${c.code.replace(/\.001$/, "")} ${c.name_ar}`] as [number, string])]} />
+                    <Select value={i.cost_code_id ?? ""} disabled={dis} onChange={upd(i.id, "cost_code_id")} options={[["", "—"], ...l3.map((c) => [c.id, `${c.code.replace(/\.001$/, "")} ${nm(c.name_ar, c.name_en)}`] as [number, string])]} />
                   )}
                 </td>
-                <td><Select value={i.package_id ?? ""} disabled={dis} onChange={upd(i.id, "package_id")} options={[["", "—"], ...(pkgs || []).map((p) => [p.id, p.name] as [number, string])]} /></td>
+                <td><Select value={i.package_id ?? ""} disabled={dis} onChange={upd(i.id, "package_id")} options={[["", "—"], ...(pkgs || []).map((p) => [p.id, nm(p.name, p.name_en)] as [number, string])]} /></td>
                 <td>{i.is_provisional ? <NumIn value={i.provisional_amount} onCommit={upd(i.id, "provisional_amount")} disabled={dis} /> :
                   <input type="checkbox" checked={false} disabled={dis} onChange={() => upd(i.id, "is_provisional")(true)} />}</td>
               </tr>))}</tbody>
@@ -127,7 +128,7 @@ export default function Boq() {
               const up = (k: string) => (v: any) => run(async () => { await api.patch(`/packages/${p.id}`, { [k]: v }); reloadP(); });
               return (
                 <tr key={p.id}>
-                  <td><TextIn value={p.name} onCommit={up("name")} disabled={dis} /></td>
+                  <td>{lang === "en" ? <TextIn value={p.name_en || p.name} onCommit={up("name_en")} disabled={dis} /> : <TextIn value={p.name} onCommit={up("name")} disabled={dis} />}</td>
                   <td><Select value={p.execution} disabled={dis} onChange={up("execution")} options={["self", "subcontract", "supply_only", "mixed"].map((x) => [x, lab(x)])} /></td>
                   <td><Select value={p.scope} disabled={dis} onChange={up("scope")} options={SCOPES.map((s) => [s, lab(s)])} /></td>
                   <td className="n">{p.items}</td>

@@ -42,7 +42,42 @@ export const LABELS: Record<string, [string, string]> = {
   site_photo: ["صورة موقع", "Site photo"], submission: ["تقديم", "Submission"], other: ["أخرى", "Other"],
   contractual: ["تعاقدية", "Contractual"], financial: ["مالية", "Financial"], technical: ["فنية", "Technical"],
   schedule: ["زمنية", "Schedule"], site: ["موقع", "Site"], procurement: ["مشتريات", "Procurement"], fx: ["سعر صرف", "FX"],
+  // roles
+  admin: ["مدير النظام", "Administrator"], tender_manager: ["مدير العطاءات", "Tender manager"], estimator: ["مُسعِّر / مهندس حصر", "Estimator / QS"],
+  planner: ["مخطط", "Planner"], technical_office: ["المكتب الفني", "Technical office"], management: ["الإدارة العليا", "Management"],
+  // document text status & origins
+  extracted: ["تم استخراج النص", "Text extracted"], needs_ocr: ["يحتاج OCR", "Needs OCR"], failed: ["فشل القراءة", "Read failed"], none: ["بدون نص", "No text"],
+  excel: ["Excel", "Excel"], site_visit: ["زيارة الموقع", "Site visit"], similarity: ["تشابه", "Similarity"],
+  // vendors
+  pending: ["تحت الاعتماد", "Pending"], suspended: ["موقوف", "Suspended"], blacklisted: ["قائمة سوداء", "Blacklisted"],
+  supplier: ["مورد", "Supplier"], subcontractor: ["مقاول باطن", "Subcontractor"], both: ["مورد ومقاول", "Both"],
 };
+
+export const PERMISSION_LABELS: Record<string, [string, string]> = {
+  "tender.manage": ["تسجيل المناقصات والمواعيد وتوزيع المهام", "Register tenders, dates, assignments"],
+  "gonogo.decide": ["اتخاذ قرار الدخول", "Take the Go / No-Go decision"],
+  "documents.manage": ["رفع وتصنيف المستندات", "Upload and classify documents"],
+  "analysis.manage": ["ملخص المناقصة والمخاطر والاستفسارات وزيارة الموقع", "Tender summary, risks, RFIs, site visit"],
+  "boq.edit": ["استيراد وتعديل المقايسة والحزم والتكويد", "Import / edit the BOQ, packages, cost codes"],
+  "pricing.edit": ["تحليل الأسعار وغير المباشر والطوارئ", "Rate build-up, indirects, contingency"],
+  "procurement.manage": ["الموردون وطلبات وعروض الأسعار والمقارنة", "Suppliers, RFQs, quotations, comparison"],
+  "schedule.edit": ["البرنامج الزمني ومدخلات التدفق النقدي", "Preliminary schedule & cash-flow inputs"],
+  "markup.view": ["رؤية نسبة الربح والأسعار النهائية", "See markup, profit and final prices"],
+  "markup.edit": ["تحديد نسبة الربح والتوزيع", "Set markup and price spreading"],
+  "estimate.approve": ["اعتماد / رفض نسخة التسعير", "Approve / reject an estimate version"],
+  "proposal.manage": ["قائمة التقديم والتصدير والنتائج", "Submission checklist, exports, results"],
+  "library.manage": ["مكتبة الأسعار والقوالب والتكويد والمرجعية", "Resource library, templates, cost codes, price references"],
+  "vendors.approve": ["اعتماد / إيقاف الموردين", "Approve / suspend / blacklist vendors"],
+  "settings.manage": ["إعدادات الشركة (الضرائب والأوزان والنسب)", "Company settings (taxes, weights, ratios)"],
+  "users.manage": ["المستخدمون والصلاحيات", "Users and permissions"],
+  "audit.view": ["قراءة سجل التعديلات", "Read the audit log"],
+};
+
+/** Name of a record that stores an Arabic and an optional English name. */
+export function useName() {
+  const { lang } = useContext(I18n);
+  return (ar?: string | null, en?: string | null) => (lang === "en" ? en || ar || "" : ar || en || "");
+}
 
 export function useLabel() {
   const { lang } = useI18n();

@@ -12,6 +12,7 @@ from ..models import (BoqItem, BuildUpLine, CostCode, Estimate, IndirectItem, Pa
 from .defaults import DEFAULT_SETTINGS
 from .textnorm import TfIdfIndex, normalize
 
+VENDOR_STATUS_AR = {"approved": "معتمد", "pending": "تحت الاعتماد", "suspended": "موقوف", "blacklisted": "قائمة سوداء"}
 HISTORY_STATUSES = ("won", "lost", "historical", "submitted")
 
 
@@ -323,40 +324,43 @@ def run_checks(db: Session, est: Estimate, res: dict | None = None) -> list[dict
     items = {i.id: i for i in db.scalars(select(BoqItem).where(BoqItem.tender_id == tender.id, BoqItem.is_section.is_(False))).all()}
     out: list[dict] = []
 
-    def add(sev, code, msg, item_id=None, **kw):
-        out.append({"severity": sev, "code": code, "message": msg, "item_id": item_id, **kw})
+    def add(sev, code, msg, item_id=None, ar=None, **kw):
+        out.append({"severity": sev, "code": code, "message": msg, "message_ar": ar or msg, "item_id": item_id, **kw})
 
     for w in res.get("warnings", []):
-        add("error", w["code"], w["message"])
+        add("error", w["code"], w["message"], ar=w["message"].replace("Missing exchange rate for", "لا يوجد سعر صرف للعملة"))
     for r in res["items"]:
         it = items.get(r["id"])
         ref = it.item_ref if it else r["id"]
         if r.get("provisional"):
             continue
         if not r.get("direct_rate"):
-            add("error", "unpriced", f"Item {ref} has no price", r["id"])
+            add("error", "unpriced", f"Item {ref} has no price", r["id"], ar=f"البند {ref} بدون سعر")
         if r.get("unapproved_lines"):
-            add("error", "ai_unapproved", f"Item {ref}: {r['unapproved_lines']} AI-suggested line(s) not yet approved", r["id"])
+            add("error", "ai_unapproved", f"Item {ref}: {r['unapproved_lines']} AI-suggested line(s) not yet approved", r["id"],
+                ar=f"البند {ref}: {r['unapproved_lines']} سطر مقترح من الـ AI لم يُعتمد بعد")
         if r.get("direct_rate") and r.get("final_rate") is not None and r["final_rate"] < r["direct_rate"]:
-            add("warning", "below_cost", f"Item {ref}: final rate below direct cost", r["id"])
+            add("warning", "below_cost", f"Item {ref}: final rate below direct cost", r["id"], ar=f"البند {ref}: السعر النهائي أقل من التكلفة المباشرة")
         if it and dec(it.quantity) <= 0:
-            add("warning", "zero_qty", f"Item {ref} has zero quantity", r["id"])
+            add("warning", "zero_qty", f"Item {ref} has zero quantity", r["id"], ar=f"البند {ref} كميته صفر")
         if it and it.checked_quantity is not None and dec(it.quantity) and abs(dec(it.checked_quantity) - dec(it.quantity)) / dec(it.quantity) > Decimal("0.05"):
-            add("info", "qty_diff", f"Item {ref}: our take-off differs >5 % from the BOQ", r["id"])
+            add("info", "qty_diff", f"Item {ref}: our take-off differs >5 % from the BOQ", r["id"], ar=f"البند {ref}: حصرنا يختلف عن كمية المقايسة بأكثر من 5%")
     # sum check: Σ qty × rate equals the submitted total
     s = res["summary"]
     recompute = sum(Decimal(str(r.get("amount") or 0)) for r in res["items"])
     if abs(recompute - Decimal(str(s["submitted_total"]))) > Decimal("0.05"):
-        add("error", "sum_mismatch", f"Sum of item amounts {recompute} ≠ total {s['submitted_total']}")
+        add("error", "sum_mismatch", f"Sum of item amounts {recompute} ≠ total {s['submitted_total']}", ar=f"مجموع البنود {recompute} لا يساوي الإجمالي {s['submitted_total']}")
     if abs(s.get("rounding_diff", 0)) > 1:
-        add("info", "rounding", f"Rounding difference of {s['rounding_diff']:.2f} between spread rates and target price")
+        add("info", "rounding", f"Rounding difference of {s['rounding_diff']:.2f} between spread rates and target price",
+            ar=f"فرق تقريب {s['rounding_diff']:.2f} بين الأسعار الموزعة والسعر المستهدف")
     # stale prices (rule 4)
     age = int(get_setting(db, "price_age_days") or 90)
     limit = date.today() - timedelta(days=age)
     for ln in db.scalars(select(BuildUpLine).where(BuildUpLine.estimate_id == est.id)).all():
         if ln.price_date and ln.price_date < limit:
             ref = items[ln.boq_item_id].item_ref if ln.boq_item_id in items else ln.boq_item_id
-            add("warning", "stale_price", f"Item {ref}: price dated {ln.price_date} is older than {age} days", ln.boq_item_id)
+            add("warning", "stale_price", f"Item {ref}: price dated {ln.price_date} is older than {age} days", ln.boq_item_id,
+                ar=f"البند {ref}: سعر بتاريخ {ln.price_date} أقدم من {age} يوم")
     # outliers vs history
     hist = history_rates(db, exclude_tender_id=tender.id)
     pct = Decimal(str(get_setting(db, "outlier_pct") or 35))
@@ -371,7 +375,8 @@ def run_checks(db: Session, est: Estimate, res: dict | None = None) -> list[dict
                 dev = (Decimal(str(r["direct_rate"])) - ref_rate) / ref_rate * 100
                 if abs(dev) > pct:
                     add("warning", "outlier", f"Item {it.item_ref}: direct rate deviates {dev:.0f}% from {sim[0]['tender_code']} item {sim[0]['item_ref']}",
-                        it.id, reference=sim[0])
+                        it.id, reference=sim[0],
+                        ar=f"البند {it.item_ref}: التكلفة المباشرة تنحرف {dev:.0f}% عن {sim[0]['tender_code']} بند {sim[0]['item_ref']}")
     # quotations validity / lead time for selected quotes
     for pk in db.scalars(select(Package).where(Package.tender_id == tender.id)).all():
         for qid in (pk.selected_quotation_id, pk.selected_apply_quotation_id):
@@ -380,19 +385,23 @@ def run_checks(db: Session, est: Estimate, res: dict | None = None) -> list[dict
                 continue
             if q.valid_until and tender.submission_date and tender.bid_validity_days and \
                     q.valid_until < tender.submission_date + timedelta(days=tender.bid_validity_days):
-                add("warning", "quote_validity", f"Package {pk.name}: selected quotation expires before our bid validity ends")
+                add("warning", "quote_validity", f"Package {pk.name}: selected quotation expires before our bid validity ends",
+                    ar=f"حزمة {pk.name}: العرض المختار تنتهي صلاحيته قبل انتهاء صلاحية عرضنا")
             sup = db.get(Supplier, q.supplier_id)
             if sup and sup.status != "approved":
                 add("error" if sup.status == "blacklisted" else "warning", "vendor_not_approved",
-                    f"Package {pk.name}: selected vendor {sup.name} is {sup.status} in the approved vendor list")
+                    f"Package {pk.name}: selected vendor {sup.name} is {sup.status} in the approved vendor list",
+                    ar=f"حزمة {pk.name}: المورد المختار {sup.name} حالته في سجل الموردين: {VENDOR_STATUS_AR.get(sup.status, sup.status)}")
             if q.lead_time_days and pk.required_on_site_month and q.lead_time_days > pk.required_on_site_month * 30:
-                add("warning", "lead_time", f"Package {pk.name}: lead time {q.lead_time_days} days exceeds required date")
+                add("warning", "lead_time", f"Package {pk.name}: lead time {q.lead_time_days} days exceeds required date",
+                    ar=f"حزمة {pk.name}: مدة التوريد {q.lead_time_days} يوم تتجاوز الموعد المطلوب")
     # site overheads vs template
     tpl = (get_setting(db, "indirect_templates") or {}).get(tender.project_type, [])
     keys = {x.template_key for x in db.scalars(select(IndirectItem).where(IndirectItem.estimate_id == est.id)).all()}
     missing = [t for t in tpl if t["key"] not in keys]
     if missing:
-        add("info", "indirects_missing", "Indirect items in the company template not used: " + ", ".join(t["ar"] for t in missing))
+        add("info", "indirects_missing", "Indirect items in the company template not used: " + ", ".join(t["en"] for t in missing),
+            ar="بنود غير مباشرة في قالب الشركة غير مستخدمة: " + "، ".join(t["ar"] for t in missing))
     return out
 
 

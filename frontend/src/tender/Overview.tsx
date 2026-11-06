@@ -84,7 +84,7 @@ function GoNoGo() {
         </div>
       )}
       {g.by && <p className="muted small">{L("القرار بواسطة", "Decided by")} {g.by} · {fmt.d(g.at)}</p>}
-      {g.apology_letter && <><h4 style={{ margin: "12px 0 6px" }}>{L("خطاب الاعتذار", "Apology letter")}</h4><pre className="letter">{g.apology_letter}</pre></>}
+      {g.apology_letter && <><h4 style={{ margin: "12px 0 6px" }}>{L("خطاب الاعتذار", "Apology letter")}</h4><pre className="letter">{lang === "en" && g.apology_letter_en ? g.apology_letter_en : g.apology_letter}</pre></>}
     </Card>
   );
 }

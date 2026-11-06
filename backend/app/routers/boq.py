@@ -168,7 +168,7 @@ def item_cc_suggestions(iid: int, db: Session = Depends(get_db), _: User = Depen
 
 
 # ---------------------------------------------------------------- packages (step 8)
-PKG_FIELDS = ["name", "trade", "execution", "scope", "required_on_site_month", "selected_quotation_id", "selected_apply_quotation_id"]
+PKG_FIELDS = ["name", "name_en", "trade", "execution", "scope", "required_on_site_month", "selected_quotation_id", "selected_apply_quotation_id"]
 
 
 @router.get("/tenders/{tid}/packages")
@@ -219,7 +219,7 @@ def auto_packages(tid: int, db: Session = Depends(get_db), _: User = Depends(req
             div = codes[div.parent_id]
         pk = existing.get(div.code)
         if not pk:
-            pk = Package(tender_id=tid, name=div.name_ar, trade=div.code,
+            pk = Package(tender_id=tid, name=div.name_ar, name_en=div.name_en, trade=div.code,
                          execution="self" if div.code in SELF_PERFORM else "subcontract",
                          scope="supply_apply")
             db.add(pk)

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { useI18n, useLabel } from "../i18n";
+import { useI18n, useLabel, useName } from "../i18n";
 import { AIBadge, Badge, Card, Empty, Field, FileButton, Modal, NumIn, Select, TextIn, useAction, useCan, useFmt, useLoad } from "../ui";
 import { EstimatePicker, useTender } from "./TenderPage";
 
@@ -101,6 +101,7 @@ function Evaluation({ ev, onDone }: { ev: any; onDone: () => void }) {
 export default function Procurement() {
   const { tender, estimateId, estimate, reloadEstimates } = useTender();
   const { L } = useI18n();
+  const nm = useName();
   const lab = useLabel();
   const fmt = useFmt();
   const can = useCan();
@@ -129,13 +130,13 @@ export default function Procurement() {
     <div className="stack">
       <div className="row gap wrap between">
         <div className="row gap wrap">
-          {(pkgs || []).map((p) => <button key={p.id} className={p.id === pid ? "primary" : ""} onClick={() => setPid(p.id)}>{p.name} <span className="small">({lab(p.execution)})</span></button>)}
+          {(pkgs || []).map((p) => <button key={p.id} className={p.id === pid ? "primary" : ""} onClick={() => setPid(p.id)}>{nm(p.name, p.name_en)} <span className="small">({lab(p.execution)})</span></button>)}
         </div>
         <EstimatePicker />
       </div>
       {!pkgs?.length && <Empty>{L("قسّم المقايسة إلى حزم أولًا (تبويب المقايسة)", "Create packages first (BOQ tab)")}</Empty>}
       {pkg && (
-        <Card title={`9) ${L("طلب عروض الأسعار", "Request for quotations")} — ${pkg.name}`} actions={can("procurement.manage") && <>
+        <Card title={`9) ${L("طلب عروض الأسعار", "Request for quotations")} — ${nm(pkg.name, pkg.name_en)}`} actions={can("procurement.manage") && <>
           <button onClick={() => run(() => api.download(`/packages/${pkg.id}/rfq.xlsx`))}>⬇ {L("ملف RFQ للموردين", "RFQ file for suppliers")}</button>
           <select value={upSup} onChange={(e) => setUpSup(e.target.value)}><option value="">{L("المورد (اختياري)", "Supplier (optional)")}</option>{(sups || []).map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
           <select value={upScope} onChange={(e) => setUpScope(e.target.value)}><option value="">{L("نطاق العرض", "Quote scope")}</option>{["supply", "apply", "supply_apply"].map((s) => <option key={s} value={s}>{lab(s)}</option>)}</select>

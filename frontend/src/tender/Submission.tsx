@@ -12,7 +12,7 @@ function OfferLetter({ estimateId }: { estimateId: number }) {
   const [extra, setExtra] = useState("");
   const [text, setText] = useState("");
   const lib = settings?.clarifications_library || [];
-  const gen = () => run(async () => setText((await api.post(`/estimates/${estimateId}/offer-letter`, { clarifications: sel, extra: extra.split("\n") })).text));
+  const gen = () => run(async () => setText((await api.post(`/estimates/${estimateId}/offer-letter`, { clarifications: sel, extra: extra.split("\n"), lang })).text));
   return (
     <Card title={L("خطاب العرض المالي والتحفظات", "Financial offer letter & clarifications")}>
       <p className="muted small">{L("اختر من مكتبة التحفظات (تُعدَّل من الإعدادات) وأضف تحفظات خاصة بهذه المناقصة.", "Pick from the clarifications library (editable in Settings) and add tender-specific ones.")}</p>

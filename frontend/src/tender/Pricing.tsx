@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import { useI18n, useLabel } from "../i18n";
+import { useI18n, useLabel, useName } from "../i18n";
 import { Badge, Card, Empty, Field, NumIn, Select, Stat, Tabs, TextIn, useAction, useCan, useFmt, useLoad } from "../ui";
 import BuildUp from "./BuildUp";
 import { EstimatePicker, useTender } from "./TenderPage";
@@ -15,6 +15,7 @@ function PriceAnalysis({ est }: { est: any }) {
   const fmt = useFmt();
   const can = useCan();
   const [f, setF] = useState({ scope: "", kind: "", package_id: "", source: "" });
+  const nm = useName();
   const qs = Object.entries(f).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join("&");
   const [data] = useLoad<any>(`/estimates/${est.id}/analysis${qs ? `?${qs}` : ""}`);
   const [pkgs] = useLoad<any[]>(`/tenders/${tender.id}/packages`);
@@ -24,7 +25,7 @@ function PriceAnalysis({ est }: { est: any }) {
         <div className="row gap">{[["", L("الكل", "All")], ...PARTS.map((p) => [p, lab(p)])].map(([k, l]) => (
           <button key={k} className={f.scope === k ? "primary" : ""} onClick={() => setF({ ...f, scope: k })}>{l}</button>))}</div>
         <Select value={f.kind} onChange={(v) => setF({ ...f, kind: v })} options={[["", L("كل أنواع الموارد", "All resource kinds")], ...["material", "labor", "equipment", "subcontract"].map((k) => [k, lab(k)] as [string, string])]} />
-        <Select value={f.package_id} onChange={(v) => setF({ ...f, package_id: v })} options={[["", L("كل الحزم", "All packages")], ...(pkgs || []).map((p) => [String(p.id), p.name] as [string, string])]} />
+        <Select value={f.package_id} onChange={(v) => setF({ ...f, package_id: v })} options={[["", L("كل الحزم", "All packages")], ...(pkgs || []).map((p) => [String(p.id), nm(p.name, p.name_en)] as [string, string])]} />
         <Select value={f.source} onChange={(v) => setF({ ...f, source: v })} options={[["", L("كل مصادر السعر", "All price sources")], ...["quotation", "library", "history", "manual"].map((k) => [k, lab(k)] as [string, string])]} />
       </div>
       {data && (
@@ -103,6 +104,7 @@ function Overheads({ est, onChange }: { est: any; onChange: () => void }) {
   const can = useCan();
   const { run } = useAction();
   const [ind, reloadI] = useLoad<any[]>(`/estimates/${est.id}/indirects`);
+  const { lang } = useI18n();
   const [sch, reloadS] = useLoad<any>(`/tenders/${tender.id}/schedule`);
   const [sugg] = useLoad<any>(`/tenders/${tender.id}/schedule/suggest`);
   const [phases, setPhases] = useState<any[]>([]);
@@ -144,7 +146,8 @@ function Overheads({ est, onChange }: { est: any; onChange: () => void }) {
           <thead><tr><th>{L("البند", "Item")}</th><th>{L("النوع", "Kind")}</th><th className="n">{L("شهري", "Monthly")}</th><th className="n">{L("العدد", "Qty")}</th><th className="n">{L("الأشهر", "Months")}</th><th className="n">{L("مبلغ ثابت", "Fixed")}</th><th className="n">{L("الإجمالي", "Total")}</th><th /></tr></thead>
           <tbody>{(ind || []).map((x) => (
             <tr key={x.id} className={x.origin === "site_visit" ? "ai-row" : ""}>
-              <td><TextIn value={x.description} onCommit={up(x, "description")} disabled={locked} /></td>
+              <td>{lang === "en" ? <TextIn value={x.description_en || x.description} onCommit={up(x, "description_en")} disabled={locked} />
+                : <TextIn value={x.description} onCommit={up(x, "description")} disabled={locked} />}</td>
               <td><Select value={x.kind} disabled={locked} onChange={up(x, "kind")} options={[["time", lab("time")], ["fixed", lab("fixed")]]} /></td>
               <td className="n">{x.kind === "time" && <NumIn value={x.monthly_cost} onCommit={up(x, "monthly_cost")} disabled={locked} />}</td>
               <td className="n"><NumIn className="sm" value={x.quantity} onCommit={up(x, "quantity")} disabled={locked} /></td>
@@ -412,7 +415,7 @@ function ValueEng({ calc }: { calc: any }) {
 // ---------------------------------------------------------------- review & approval (step 17)
 function Review({ est, onChange }: { est: any; onChange: () => void }) {
   const { tender, estimates, reloadEstimates, setEstimateId, reload } = useTender();
-  const { L } = useI18n();
+  const { L, lang } = useI18n();
   const lab = useLabel();
   const fmt = useFmt();
   const can = useCan();
@@ -427,7 +430,7 @@ function Review({ est, onChange }: { est: any; onChange: () => void }) {
     <div className="stack">
       <Card title={L("17) الفحوصات الآلية قبل الاعتماد", "17) Automated checks before approval")} actions={<Badge k={est.status} />}>
         {!checks ? null : !checks.length ? <div className="alert info">{L("لا ملاحظات", "No findings")}</div> : checks.map((c, i) => (
-          <div key={i} className="check-row"><Badge k={c.severity} /><span>{c.message}</span></div>))}
+          <div key={i} className="check-row"><Badge k={c.severity} /><span>{lang === "ar" ? c.message_ar || c.message : c.message}</span></div>))}
         <div className="row gap wrap" style={{ marginTop: 12 }}>
           {["draft", "rejected"].includes(est.status) && can("pricing.edit") && <button className="primary" disabled={busy || errors.length > 0} onClick={() => act("submit", undefined, L("أُرسلت للمراجعة", "Sent for review"))}>{L("إرسال للمراجعة والاعتماد", "Submit for review")}</button>}
           {est.status === "in_review" && can("estimate.approve") && <>

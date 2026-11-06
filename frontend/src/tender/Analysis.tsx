@@ -133,7 +133,7 @@ function Risks({ n }: { n: number }) {
 
 function Rfis({ n }: { n: number }) {
   const { tender } = useTender();
-  const { L } = useI18n();
+  const { L, lang } = useI18n();
   const can = useCan();
   const { run } = useAction();
   const [rfis, reload] = useLoad<any[]>(`/tenders/${tender.id}/rfis`, [n]);
@@ -143,7 +143,7 @@ function Rfis({ n }: { n: number }) {
   return (
     <Card title={L("5) الاستفسارات (RFIs) وأثرها على التسعير", "5) Clarifications (RFIs) & pricing impact")} actions={<>
       {!dis && <button className="sm" onClick={() => run(async () => { await api.post(`/tenders/${tender.id}/rfis`, { question: L("سؤال جديد", "New question") }); reload(); })}>+ {L("استفسار", "RFI")}</button>}
-      <button className="sm" onClick={() => run(async () => setLetter((await api.get(`/tenders/${tender.id}/rfis/letter`)).text))}>{L("خطاب الاستفسارات", "RFI letter")}</button></>}>
+      <button className="sm" onClick={() => run(async () => setLetter((await api.get(`/tenders/${tender.id}/rfis/letter?lang=${lang}`)).text))}>{L("خطاب الاستفسارات", "RFI letter")}</button></>}>
       {!rfis?.length ? <Empty>{L("لا استفسارات", "No RFIs")}</Empty> : (
         <div className="tbl-wrap"><table>
           <thead><tr><th>#</th><th>{L("السؤال", "Question")}</th><th>{L("المرجع", "Reference")}</th><th>{L("الحالة", "Status")}</th><th>{L("الرد", "Answer")}</th><th>{L("الأثر على التسعير", "Pricing impact")}</th></tr></thead>

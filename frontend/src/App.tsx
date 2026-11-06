@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { api, getToken, setToken } from "./api";
-import { useI18n } from "./i18n";
+import { useI18n, useLabel } from "./i18n";
 import Audit from "./pages/Audit";
 import Dashboard from "./pages/Dashboard";
 import Library from "./pages/Library";
@@ -47,6 +47,7 @@ function Login() {
 
 export default function App() {
   const { L, lang, setLang } = useI18n();
+  const lab = useLabel();
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState(false);
   const [ai, setAi] = useState("");
@@ -71,7 +72,7 @@ export default function App() {
           {can("audit.view") && <NavLink to="/audit">{L("سجل التعديلات", "Audit log")}</NavLink>}
           <NavLink to="/settings">{L("الإعدادات والمستخدمون", "Settings & users")}</NavLink>
           <div className="foot stack" style={{ gap: 8 }}>
-            <div>{me.full_name || me.username}<div className="small" style={{ color: "#9fb3cc" }}>{me.roles.join("، ")}</div></div>
+            <div>{me.full_name || me.username}<div className="small" style={{ color: "#9fb3cc" }}>{me.roles.map(lab).join(lang === "ar" ? "، " : ", ")}</div></div>
             <div className="small" style={{ color: "#9fb3cc" }}>AI: {ai === "offline-rules" ? L("وضع بدون مفتاح API", "offline rules (no API key)") : ai}</div>
             <div className="row gap">
               <button className="sm" onClick={() => setLang(lang === "ar" ? "en" : "ar")}>{lang === "ar" ? "English" : "عربي"}</button>

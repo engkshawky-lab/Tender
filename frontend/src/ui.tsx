@@ -29,12 +29,47 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const ERR_AR: [RegExp, string][] = [
+  [/^Missing permission: (.*)$/, "ليس لديك صلاحية: $1"],
+  [/^Wrong username or password$/, "اسم المستخدم أو كلمة المرور غير صحيحة"],
+  [/^Not authenticated$|^Invalid or expired token$/, "انتهت الجلسة — سجّل الدخول مرة أخرى"],
+  [/is (\w+) and locked — create a new version to change it$/, "النسخة مقفولة — أنشئ نسخة جديدة للتعديل"],
+  [/^Fix blocking checks before review$|^Blocking checks$/, "يوجد أخطاء تمنع الإرسال للمراجعة"],
+  [/^Only versions in review can be (approved|rejected)$/, "يمكن الاعتماد أو الرفض للنسخ قيد المراجعة فقط"],
+  [/^A documented reason is required for the decision$|^A reason is required$/, "يلزم كتابة السبب"],
+  [/^No readable documents/, "لا توجد مستندات مقروءة — ارفع مستندات المناقصة أولًا"],
+  [/^Approve the AI-extracted quotation lines first$/, "اعتمد بنود العرض المفرغة بالـ AI أولًا"],
+  [/^Complete the submission checklist first$/, "أكمل قائمة تدقيق التقديم أولًا"],
+  [/^No approved estimate version$/, "لا توجد نسخة تسعير معتمدة"],
+  [/^No BOQ header found/, "لم يتم التعرف على صف العناوين في المقايسة (يلزم عمودا الوصف والكمية على الأقل)"],
+  [/^Upload the (owner's BOQ|priced BOQ) as \.xlsx/, "ارفع المقايسة بصيغة xlsx"],
+  [/^The rate column is empty/, "عمود الأسعار فارغ — هل هذه النسخة المسعرة من الملف؟"],
+  [/^No rate \/ price column found/, "لم يتم العثور على عمود السعر في الملف"],
+  [/^Reading PDF \/ e-mail quotations needs the AI service/, "قراءة عروض PDF والإيميل تحتاج تفعيل الـ AI (مفتاح API). بدون AI استخدم ملف RFQ Excel."],
+  [/^Supplier unknown/, "المورد غير معروف — اختر المورد"],
+  [/^Username already exists$/, "اسم المستخدم موجود بالفعل"],
+  [/^Old password is wrong$/, "كلمة المرور الحالية غير صحيحة"],
+  [/^Quotation belongs to another package$/, "العرض يخص حزمة أخرى"],
+  [/^The item has no build-up lines$/, "البند ليس له تحليل سعر"],
+  [/^Cannot reach the AI service$/, "تعذر الاتصال بخدمة الـ AI"],
+  [/^AI authentication failed/, "مفتاح الـ AI غير صحيح — راجع ANTHROPIC_API_KEY"],
+  [/^AI rate limit reached/, "تم تجاوز حد الاستخدام للـ AI — أعد المحاولة بعد دقيقة"],
+  [/^Price-based percentages/, "نسب الضمانات والتأمين والضرائب ضمن السعر مرتفعة جدًا ولا يمكن حساب السعر"],
+];
+
+function localise(msg: string): string {
+  if (document.documentElement.lang !== "ar") return msg;
+  for (const [re, ar] of ERR_AR) if (re.test(msg)) return msg.replace(re, ar);
+  return msg;
+}
+
 export function errText(e: any): string {
+  const ar = document.documentElement.lang === "ar";
   if (e instanceof ApiError) {
-    if (e.detail?.checks) return `${e.detail.message}: ${e.detail.checks.map((c: any) => c.message).join(" · ")}`;
-    return e.message;
+    if (e.detail?.checks) return `${localise(e.detail.message)}: ${e.detail.checks.map((c: any) => (ar ? c.message_ar : c.message) || c.message).join(" · ")}`;
+    return localise(e.message);
   }
-  return String(e?.message || e);
+  return localise(String(e?.message || e));
 }
 
 /** Run an async action with toast on error/success. */

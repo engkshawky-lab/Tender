@@ -287,6 +287,7 @@ class Package(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tender_id: Mapped[int] = mapped_column(ForeignKey("tenders.id", ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(200))
+    name_en: Mapped[str] = mapped_column(String(200), default="")
     trade: Mapped[str] = mapped_column(String(60), default="")
     execution: Mapped[str] = mapped_column(String(20), default="subcontract")  # self | subcontract | supply_only | mixed
     scope: Mapped[str] = mapped_column(String(20), default="supply_apply")     # supply | apply | supply_apply
@@ -447,6 +448,7 @@ class IndirectItem(Base):
     estimate_id: Mapped[int] = mapped_column(ForeignKey("estimates.id", ondelete="CASCADE"), index=True)
     category: Mapped[str] = mapped_column(String(40), default="site_staff")
     description: Mapped[str] = mapped_column(String(300))
+    description_en: Mapped[str] = mapped_column(String(300), default="")
     kind: Mapped[str] = mapped_column(String(10), default="time")  # time | fixed
     monthly_cost: Mapped[Decimal] = mapped_column(Money, default=0)
     quantity: Mapped[Decimal] = mapped_column(Money, default=1)   # e.g. number of engineers / cars

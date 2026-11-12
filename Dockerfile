@@ -13,7 +13,6 @@ COPY backend/ ./backend/
 COPY samples/ ./samples/
 COPY --from=ui /ui/dist ./frontend/dist
 ENV TP_DATA_DIR=/data TP_FRONTEND_DIST=/app/frontend/dist
-VOLUME /data
 EXPOSE 8000
 WORKDIR /app/backend
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
